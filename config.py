@@ -88,6 +88,10 @@ class Config:
     pumpfun_ws_url: str = "wss://pumpportal.fun/api/data"
     helius_api_key: Optional[str] = field(default_factory=lambda: _get_env("HELIUS_API_KEY"))
 
+    # Web dashboard
+    dashboard_port: int = field(default_factory=lambda: _get_int("DASHBOARD_PORT", 8080))
+    dashboard_enabled: bool = field(default_factory=lambda: _get_bool("DASHBOARD_ENABLED", True))
+
     def validate(self) -> "Config":
         """Warn about missing optional but important keys."""
         warnings = []

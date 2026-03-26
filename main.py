@@ -22,6 +22,7 @@ from cupsy.wallet import Wallet
 from cupsy.risk_manager import RiskManager
 from cupsy.paper_tracker import paper_tracker
 from cupsy.dashboard import run_dashboard
+from cupsy import web_dashboard
 
 
 async def main() -> None:
@@ -88,9 +89,17 @@ async def main() -> None:
 
     # --- Start live dashboard (paper trading only) ---
     dashboard_task = None
+    web_server_task = None
     if config.paper_trading:
         dashboard_task = asyncio.create_task(run_dashboard(), name="dashboard")
         logger.info("Paper trading dashboard started.")
+
+    if config.paper_trading and config.dashboard_enabled:
+        web_server_task = asyncio.create_task(
+            web_dashboard.start_server(host='0.0.0.0', port=config.dashboard_port),
+            name="web_dashboard",
+        )
+        logger.info(f"Dashboard: http://localhost:{config.dashboard_port}")
 
     logger.info("Cupsy is live. Scanning for new tokens...")
 
@@ -109,6 +118,8 @@ async def main() -> None:
         monitor_task.cancel()
         if dashboard_task:
             dashboard_task.cancel()
+        if web_server_task:
+            web_server_task.cancel()
         try:
             await asyncio.wait_for(monitor_task, timeout=5)
         except (asyncio.CancelledError, asyncio.TimeoutError):
