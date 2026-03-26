@@ -10,6 +10,7 @@ Orchestrates:
 """
 
 import asyncio
+import os
 import sys
 
 from config import config
@@ -22,7 +23,7 @@ from cupsy.wallet import Wallet
 from cupsy.risk_manager import RiskManager
 from cupsy.paper_tracker import paper_tracker
 from cupsy.dashboard import run_dashboard
-from cupsy import web_dashboard
+from cupsy.html_dashboard import run_html_dashboard, write_dashboard, OUTPUT_PATH
 
 
 async def main() -> None:
@@ -95,11 +96,9 @@ async def main() -> None:
         logger.info("Paper trading dashboard started.")
 
     if config.paper_trading and config.dashboard_enabled:
-        web_server_task = asyncio.create_task(
-            web_dashboard.start_server(host='0.0.0.0', port=config.dashboard_port),
-            name="web_dashboard",
-        )
-        logger.info(f"Dashboard: http://localhost:{config.dashboard_port}")
+        write_dashboard()  # write immediately on startup
+        web_server_task = asyncio.create_task(run_html_dashboard(), name="html_dashboard")
+        logger.info(f"Dashboard file: {os.path.abspath(OUTPUT_PATH)}")
 
     logger.info("Cupsy is live. Scanning for new tokens...")
 
