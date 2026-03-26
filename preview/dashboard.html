@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cupsy Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', monospace; font-size: 14px; }
+  h2 { color: #79c0ff; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 22px; font-weight: 800; color: #79c0ff; letter-spacing: 3px; }
+  .badge { background: #388bfd22; color: #79c0ff; border: 1px solid #388bfd55; border-radius: 4px; padding: 3px 10px; font-size: 11px; margin-left: 10px; }
+  .live { display: flex; align-items: center; gap: 8px; color: #8b949e; font-size: 12px; }
+  .dot { width: 8px; height: 8px; background: #3fb950; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .stats-bar { background: #161b22; border-bottom: 1px solid #30363d; padding: 14px 24px; display: flex; gap: 36px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; }
+  .stat-label { color: #8b949e; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .stat-value { font-size: 20px; font-weight: 700; margin-top: 3px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 400px; gap: 16px; padding: 16px 24px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 18px; }
+  .full { grid-column: 1 / -1; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { color: #8b949e; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px; text-align: left; border-bottom: 1px solid #30363d; white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid #21262d; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1c2128; }
+
+  .pnl-pos { color: #3fb950; font-weight: 700; }
+  .pnl-neg { color: #f85149; font-weight: 700; }
+  .pnl-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 13px; }
+  .pnl-badge.pos { background: #3fb95022; color: #3fb950; }
+  .pnl-badge.neg { background: #f8514922; color: #f85149; }
+
+  .chart-wrap { position: relative; height: 210px; }
+  .scroll-wrap { max-height: 400px; overflow-y: auto; }
+  .scroll-wrap::-webkit-scrollbar { width: 4px; }
+  .scroll-wrap::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+  .win-border { border-left: 3px solid #3fb950; }
+  .loss-border { border-left: 3px solid #f85149; }
+  .sym { font-weight: 700; color: #e6edf3; }
+  .dim { color: #8b949e; font-size: 12px; }
+  .reason { font-size: 12px; color: #8b949e; }
+  .icon-w { color: #3fb950; font-weight: 800; }
+  .icon-l { color: #f85149; font-weight: 800; }
+
+  .note { text-align: center; color: #8b949e; font-size: 12px; padding: 10px; border-top: 1px solid #21262d; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="logo">CUPSY</span>
+    <span class="badge">PAPER TRADING</span>
+  </div>
+  <div class="live">
+    <span class="dot"></span>
+    <span>Sample preview &mdash; real dashboard updates every 8s</span>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-label">Uptime</span>
+    <span class="stat-value" id="uptime" style="color:#79c0ff">00:00:00</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Scanned</span>
+    <span class="stat-value">347</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Bought</span>
+    <span class="stat-value">18</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Closed</span>
+    <span class="stat-value">15</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Win Rate</span>
+    <span class="stat-value" style="color:#3fb950">67%</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Total P&amp;L</span>
+    <span class="stat-value" style="color:#3fb950">+1.2340 SOL</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Best Trade</span>
+    <span class="stat-value" style="color:#3fb950">+312%</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Worst Trade</span>
+    <span class="stat-value" style="color:#f85149">-30%</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Open Now</span>
+    <span class="stat-value">3</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- Open Positions -->
+  <div class="card">
+    <h2>Open Positions (3)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Token</th><th>Entry $</th><th>Live $</th><th>P&amp;L %</th><th>P&amp;L SOL</th><th>SOL In</th><th>Age</th><th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="sym">DOGE2</td>
+          <td>$0.00000412</td>
+          <td>$0.00001847</td>
+          <td><span class="pnl-badge pos">+348.3%</span></td>
+          <td class="pnl-pos">+0.3483</td>
+          <td>0.1000</td>
+          <td>12m 04s</td>
+          <td class="dim">28s ago</td>
+        </tr>
+        <tr>
+          <td class="sym">PEPEX</td>
+          <td>$0.00000089</td>
+          <td>$0.00000134</td>
+          <td><span class="pnl-badge pos">+50.6%</span></td>
+          <td class="pnl-pos">+0.0506</td>
+          <td>0.1000</td>
+          <td>4m 51s</td>
+          <td class="dim">12s ago</td>
+        </tr>
+        <tr>
+          <td class="sym">BONKZ</td>
+          <td>$0.00000231</td>
+          <td>$0.00000198</td>
+          <td><span class="pnl-badge neg">-14.3%</span></td>
+          <td class="pnl-neg">-0.0143</td>
+          <td>0.1000</td>
+          <td>1m 22s</td>
+          <td class="dim">5s ago</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Chart -->
+  <div class="card">
+    <h2>Cumulative P&amp;L (SOL)</h2>
+    <div class="chart-wrap">
+      <canvas id="pnlChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Trade History -->
+  <div class="card full">
+    <h2>Trade History (15 closed trades)</h2>
+    <div class="scroll-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Token</th><th>P&amp;L %</th><th>P&amp;L SOL</th><th>Entry $</th><th>Exit $</th><th>SOL In</th><th>SOL Out</th><th>Hold Time</th><th>Exit Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T015</td><td class="sym">MOONCAT</td><td><span class="pnl-badge pos">+312.4%</span></td><td class="pnl-pos">+0.3124</td><td>$0.00000091</td><td>$0.00000375</td><td>0.1000</td><td>0.4124</td><td>8m 12s</td><td class="reason">TAKE PROFIT +312.4%</td></tr>
+          <tr class="loss-border"><td><span class="icon-l">✗</span> T014</td><td class="sym">WAGMI</td><td><span class="pnl-badge neg">-30.0%</span></td><td class="pnl-neg">-0.0300</td><td>$0.00000442</td><td>$0.00000309</td><td>0.1000</td><td>0.0700</td><td>2m 05s</td><td class="reason">STOP LOSS -30.0%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T013</td><td class="sym">SOLCAT</td><td><span class="pnl-badge pos">+187.2%</span></td><td class="pnl-pos">+0.1872</td><td>$0.00000018</td><td>$0.00000052</td><td>0.1000</td><td>0.2872</td><td>5m 44s</td><td class="reason">TAKE PROFIT +187.2%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T012</td><td class="sym">FROGGO</td><td><span class="pnl-badge pos">+156.8%</span></td><td class="pnl-pos">+0.1568</td><td>$0.00000007</td><td>$0.00000018</td><td>0.1000</td><td>0.2568</td><td>3m 18s</td><td class="reason">TAKE PROFIT +156.8%</td></tr>
+          <tr class="loss-border"><td><span class="icon-l">✗</span> T011</td><td class="sym">RUGPULL</td><td><span class="pnl-badge neg">-30.0%</span></td><td class="pnl-neg">-0.0300</td><td>$0.00000321</td><td>$0.00000225</td><td>0.1000</td><td>0.0700</td><td>0m 58s</td><td class="reason">STOP LOSS -30.0%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T010</td><td class="sym">PEPEMOON</td><td><span class="pnl-badge pos">+201.5%</span></td><td class="pnl-pos">+0.2015</td><td>$0.00000003</td><td>$0.00000009</td><td>0.1000</td><td>0.3015</td><td>6m 30s</td><td class="reason">TAKE PROFIT +201.5%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T009</td><td class="sym">SHIBX</td><td><span class="pnl-badge pos">+88.4%</span></td><td class="pnl-pos">+0.0884</td><td>$0.00000156</td><td>$0.00000294</td><td>0.1000</td><td>0.1884</td><td>11m 02s</td><td class="reason">TAKE PROFIT +88.4%</td></tr>
+          <tr class="loss-border"><td><span class="icon-l">✗</span> T008</td><td class="sym">DUMPIT</td><td><span class="pnl-badge neg">-30.0%</span></td><td class="pnl-neg">-0.0300</td><td>$0.00000089</td><td>$0.00000062</td><td>0.1000</td><td>0.0700</td><td>1m 41s</td><td class="reason">STOP LOSS -30.0%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T007</td><td class="sym">DEGEN</td><td><span class="pnl-badge pos">+175.3%</span></td><td class="pnl-pos">+0.1753</td><td>$0.00000044</td><td>$0.00000121</td><td>0.1000</td><td>0.2753</td><td>4m 55s</td><td class="reason">TAKE PROFIT +175.3%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T006</td><td class="sym">CATCOIN</td><td><span class="pnl-badge pos">+163.7%</span></td><td class="pnl-pos">+0.1637</td><td>$0.00000012</td><td>$0.00000032</td><td>0.1000</td><td>0.2637</td><td>7m 19s</td><td class="reason">TAKE PROFIT +163.7%</td></tr>
+          <tr class="loss-border"><td><span class="icon-l">✗</span> T005</td><td class="sym">SCAM</td><td><span class="pnl-badge neg">-30.0%</span></td><td class="pnl-neg">-0.0300</td><td>$0.00000201</td><td>$0.00000141</td><td>0.1000</td><td>0.0700</td><td>0m 34s</td><td class="reason">STOP LOSS -30.0%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T004</td><td class="sym">WOJAK</td><td><span class="pnl-badge pos">+221.9%</span></td><td class="pnl-pos">+0.2219</td><td>$0.00000006</td><td>$0.00000019</td><td>0.1000</td><td>0.3219</td><td>9m 08s</td><td class="reason">TAKE PROFIT +221.9%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T003</td><td class="sym">LAMBO</td><td><span class="pnl-badge pos">+150.1%</span></td><td class="pnl-pos">+0.1501</td><td>$0.00000033</td><td>$0.00000083</td><td>0.1000</td><td>0.2501</td><td>5m 27s</td><td class="reason">TAKE PROFIT +150.1%</td></tr>
+          <tr class="loss-border"><td><span class="icon-l">✗</span> T002</td><td class="sym">REKT</td><td><span class="pnl-badge neg">-30.0%</span></td><td class="pnl-neg">-0.0300</td><td>$0.00000178</td><td>$0.00000125</td><td>0.1000</td><td>0.0700</td><td>1m 12s</td><td class="reason">STOP LOSS -30.0%</td></tr>
+          <tr class="win-border"><td><span class="icon-w">✓</span> T001</td><td class="sym">FIRSTMEME</td><td><span class="pnl-badge pos">+98.6%</span></td><td class="pnl-pos">+0.0986</td><td>$0.00000055</td><td>$0.00000109</td><td>0.1000</td><td>0.1986</td><td>14m 33s</td><td class="reason">TAKE PROFIT +98.6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">&#9432; This is a sample preview. When running the bot, this updates with real trades every 8 seconds.</div>
+  </div>
+
+</div>
+
+<script>
+// Uptime counter
+let start = Date.now();
+function tick() {
+  let s = Math.floor((Date.now() - start) / 1000);
+  let h = String(Math.floor(s/3600)).padStart(2,'0');
+  let m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  let sec = String(s%60).padStart(2,'0');
+  document.getElementById('uptime').textContent = h+':'+m+':'+sec;
+}
+tick(); setInterval(tick, 1000);
+
+// Chart
+const labels = ['T001','T002','T003','T004','T005','T006','T007','T008','T009','T010','T011','T012','T013','T014','T015'];
+const values = [0.0986,-0.0014,0.1487,0.3706,0.3406,0.5043,0.6796,0.6496,0.7380,0.9395,0.9095,1.0663,1.2535,1.2235,1.5359];
+const ctx = document.getElementById('pnlChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      data: values,
+      borderColor: '#3fb950',
+      backgroundColor: '#3fb95018',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4,
+      pointRadius: 4,
+      pointBackgroundColor: values.map(v => v >= 0 ? '#3fb950' : '#f85149'),
+      pointBorderColor: 'transparent',
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
