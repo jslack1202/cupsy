@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CUPSY LIVE — Paper Trading Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --card:     #161b22;
+      --border:   #30363d;
+      --green:    #3fb950;
+      --red:      #f85149;
+      --cyan:     #79c0ff;
+      --yellow:   #e3b341;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --radius:   8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      text-shadow: 0 0 18px rgba(121,192,255,0.45);
+    }
+
+    .badge-paper {
+      background: rgba(227,179,65,0.15);
+      border: 1px solid var(--yellow);
+      color: var(--yellow);
+      border-radius: 4px;
+      padding: 2px 10px;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    .dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); animation: none; }
+    .dot.loading { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: none; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.2; }
+    }
+
+    /* ── Stats bar ───────────────────────────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1px;
+      border-bottom: 1px solid var(--border);
+      background: var(--border);
+    }
+
+    .stat-cell {
+      flex: 1 1 100px;
+      background: var(--card);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red   { color: var(--red); }
+    .stat-value.cyan  { color: var(--cyan); }
+
+    /* ── Main grid ───────────────────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 16px 24px;
+    }
+
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-count {
+      background: rgba(121,192,255,0.12);
+      border: 1px solid rgba(121,192,255,0.3);
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 11px;
+      color: var(--cyan);
+    }
+
+    /* ── Tables ──────────────────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    thead th {
+      padding: 8px 10px;
+      text-align: right;
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: var(--card);
+    }
+    thead th:first-child { text-align: left; }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody tr:last-child { border-bottom: none; }
+
+    td {
+      padding: 9px 10px;
+      text-align: right;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    td:first-child { text-align: left; }
+
+    .token-symbol {
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .pnl-positive { color: var(--green); font-weight: 600; }
+    .pnl-negative { color: var(--red);   font-weight: 600; }
+    .pnl-neutral  { color: var(--muted); }
+
+    .exit-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+    .exit-tp   { background: rgba(63,185,80,0.15);  border: 1px solid rgba(63,185,80,0.4);  color: var(--green); }
+    .exit-sl   { background: rgba(248,81,73,0.15);  border: 1px solid rgba(248,81,73,0.4);  color: var(--red);   }
+    .exit-time { background: rgba(121,192,255,0.1); border: 1px solid rgba(121,192,255,0.3); color: var(--cyan); }
+    .exit-other{ background: rgba(139,148,158,0.1); border: 1px solid rgba(139,148,158,0.3); color: var(--muted); }
+
+    .empty-row td {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px;
+      font-style: italic;
+    }
+
+    /* ── Chart wrapper ───────────────────────────────────────────────────── */
+    .chart-wrap {
+      padding: 16px;
+      height: 260px;
+      position: relative;
+    }
+
+    /* ── Trade history section ───────────────────────────────────────────── */
+    .history-section {
+      margin: 0 24px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .history-section .table-wrap {
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Misc ─────────────────────────────────────────────────────────────── */
+    .won-icon  { font-size: 10px; }
+    .age-muted { color: var(--muted); font-size: 11px; }
+
+    .connection-error {
+      display: none;
+      background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.35);
+      color: var(--red);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      margin: 0 24px 16px;
+      font-size: 12px;
+      text-align: center;
+    }
+    .connection-error.show { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span class="logo">CUPSY LIVE</span>
+    <span class="badge-paper">PAPER TRADING</span>
+  </div>
+  <div class="sync-status">
+    <div class="dot" id="sync-dot"></div>
+    <span id="sync-label">Connecting...</span>
+  </div>
+</header>
+
+<!-- ── Stats bar ──────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-cell">
+    <span class="stat-label">Uptime</span>
+    <span class="stat-value cyan" id="stat-uptime">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Scanned</span>
+    <span class="stat-value" id="stat-scanned">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Bought</span>
+    <span class="stat-value" id="stat-bought">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Closed</span>
+    <span class="stat-value" id="stat-closed">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Win Rate</span>
+    <span class="stat-value" id="stat-winrate">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Total P&amp;L</span>
+    <span class="stat-value" id="stat-pnl">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Best Trade</span>
+    <span class="stat-value green" id="stat-best">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Worst Trade</span>
+    <span class="stat-value red" id="stat-worst">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-label">Open Now</span>
+    <span class="stat-value cyan" id="stat-open">—</span>
+  </div>
+</div>
+
+<!-- ── Connection error ────────────────────────────────────────────────── -->
+<div class="connection-error" id="conn-error">
+  Connection error — retrying in 30 seconds...
+</div>
+
+<!-- ── Main grid ──────────────────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Open positions -->
+  <div class="panel">
+    <div class="panel-header">
+      Open Positions
+      <span class="panel-count" id="open-count">0</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Entry $</th>
+            <th>Live $</th>
+            <th>P&amp;L %</th>
+            <th>P&amp;L SOL</th>
+            <th>SOL In</th>
+            <th>Age</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="open-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Cumulative P&L chart -->
+  <div class="panel">
+    <div class="panel-header">Cumulative P&amp;L (SOL)</div>
+    <div class="chart-wrap">
+      <canvas id="pnl-chart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Trade History ──────────────────────────────────────────────────── -->
+<div class="history-section">
+  <div class="panel-header">
+    Trade History
+    <span class="panel-count" id="history-count">0</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Token</th>
+          <th>P&amp;L %</th>
+          <th>P&amp;L SOL</th>
+          <th>Entry $</th>
+          <th>Exit $</th>
+          <th>SOL In</th>
+          <th>SOL Out</th>
+          <th>Hold</th>
+          <th>Exit Reason</th>
+        </tr>
+      </thead>
+      <tbody id="history-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────
+  const OWNER  = 'jslack1202';
+  const REPO   = 'cupsy';
+  const BRANCH = 'claude/ai-memecoin-trader-idlFa';
+
+  // ── State ───────────────────────────────────────────────────────────────
+  let lastFetchedData = null;
+  let lastFetchTime   = null;
+  let sessionStartTs  = null;   // unix seconds, set from data.stats.session_start
+  let uptimeInterval  = null;
+  let pnlChart        = null;
+
+  // ── Fetch ───────────────────────────────────────────────────────────────
+  async function fetchData() {
+    const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/docs/data.json?ref=${BRANCH}&t=${Date.now()}`;
+    const resp = await fetch(url, { headers: { 'Accept': 'application/vnd.github.v3+json' } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const file = await resp.json();
+    const data = JSON.parse(atob(file.content));
+    return data;
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  function fmtPrice(v) {
+    if (v === 0 || v == null) return '—';
+    if (v < 0.000001) return v.toExponential(3);
+    if (v < 0.01)     return v.toFixed(8);
+    if (v < 1)        return v.toFixed(6);
+    return v.toFixed(4);
+  }
+
+  function fmtSol(v) {
+    if (v == null) return '—';
+    const s = v >= 0 ? `+${v.toFixed(4)}` : v.toFixed(4);
+    return s;
+  }
+
+  function fmtPct(v) {
+    if (v == null) return '—';
+    return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  }
+
+  function pnlClass(v) {
+    if (v == null) return 'pnl-neutral';
+    return v > 0 ? 'pnl-positive' : v < 0 ? 'pnl-negative' : 'pnl-neutral';
+  }
+
+  function fmtAge(seconds) {
+    if (seconds == null) return '—';
+    const s = Math.round(seconds);
+    if (s < 60)   return `${s}s`;
+    if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+    return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+  }
+
+  function fmtUptime(seconds) {
+    const s = Math.round(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2,'0')}m`;
+    return `${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
+  }
+
+  function fmtLastSynced(ts) {
+    if (!ts) return 'Never';
+    const ago = Math.round((Date.now() / 1000) - ts);
+    if (ago < 5)   return 'just now';
+    if (ago < 60)  return `${ago}s ago`;
+    if (ago < 3600) return `${Math.floor(ago/60)}m ago`;
+    return `${Math.floor(ago/3600)}h ago`;
+  }
+
+  function exitBadgeClass(reason) {
+    if (!reason) return 'exit-other';
+    const r = reason.toLowerCase();
+    if (r.includes('take_profit') || r.includes('tp')) return 'exit-tp';
+    if (r.includes('stop_loss')   || r.includes('sl')) return 'exit-sl';
+    if (r.includes('time'))                             return 'exit-time';
+    return 'exit-other';
+  }
+
+  function exitLabel(reason) {
+    if (!reason) return '—';
+    const map = {
+      'take_profit': 'TAKE PROFIT',
+      'stop_loss':   'STOP LOSS',
+      'time_exit':   'TIME EXIT',
+    };
+    return map[reason.toLowerCase()] || reason.toUpperCase();
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  function renderStats(data) {
+    const s = data.stats;
+
+    // Uptime (live-ticking via setInterval)
+    if (s.session_start && s.session_start > 0) {
+      sessionStartTs = s.session_start;
+    }
+
+    document.getElementById('stat-scanned').textContent = s.tokens_scanned ?? '—';
+    document.getElementById('stat-bought').textContent  = s.tokens_bought ?? '—';
+    document.getElementById('stat-closed').textContent  = s.total_trades ?? '—';
+
+    const wrEl = document.getElementById('stat-winrate');
+    wrEl.textContent = s.total_trades > 0 ? fmtPct(s.win_rate) : '—';
+    wrEl.className   = 'stat-value ' + (s.win_rate >= 50 ? 'green' : s.win_rate > 0 ? 'red' : '');
+
+    const pnlEl = document.getElementById('stat-pnl');
+    pnlEl.textContent = s.total_trades > 0 ? fmtSol(s.total_pnl_sol) + ' SOL' : '—';
+    pnlEl.className   = 'stat-value ' + pnlClass(s.total_pnl_sol);
+
+    document.getElementById('stat-best').textContent  = s.best_trade_pct  ? fmtPct(s.best_trade_pct)  : '—';
+    document.getElementById('stat-worst').textContent = s.worst_trade_pct ? fmtPct(s.worst_trade_pct) : '—';
+    document.getElementById('stat-open').textContent  = s.open_positions ?? '—';
+  }
+
+  function renderOpenPositions(positions) {
+    const tbody = document.getElementById('open-tbody');
+    document.getElementById('open-count').textContent = positions.length;
+
+    if (!positions.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No open positions</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = positions.map(p => {
+      const pc = pnlClass(p.pnl_pct);
+      const updatedAgo = p.last_updated
+        ? fmtAge(Math.round(Date.now()/1000 - p.last_updated))
+        : '—';
+      return `
+        <tr>
+          <td><span class="token-symbol">${escHtml(p.symbol)}</span></td>
+          <td>$${fmtPrice(p.entry_price_usd)}</td>
+          <td>$${fmtPrice(p.current_price_usd)}</td>
+          <td class="${pc}">${fmtPct(p.pnl_pct)}</td>
+          <td class="${pc}">${fmtSol(p.pnl_sol)}</td>
+          <td>${(p.sol_spent||0).toFixed(4)}</td>
+          <td class="age-muted">${fmtAge(p.age_seconds)}</td>
+          <td class="age-muted">${updatedAgo}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderChart(closedTrades) {
+    const labels = [];
+    const values = [];
+    let cumulative = 0;
+
+    // trades arrive newest-first from API, reverse to chronological
+    const sorted = [...closedTrades].reverse();
+    sorted.forEach((t, i) => {
+      cumulative += (t.pnl_sol || 0);
+      labels.push(t.trade_id || `T${i+1}`);
+      values.push(parseFloat(cumulative.toFixed(6)));
+    });
+
+    if (!pnlChart) {
+      const ctx = document.getElementById('pnl-chart').getContext('2d');
+      pnlChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Cumulative P&L (SOL)',
+            data: values,
+            borderColor: '#3fb950',
+            backgroundColor: 'rgba(63,185,80,0.08)',
+            borderWidth: 2,
+            pointRadius: values.length <= 30 ? 4 : 2,
+            pointBackgroundColor: values.map(v => v >= 0 ? '#3fb950' : '#f85149'),
+            tension: 0.35,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#161b22',
+              borderColor: '#30363d',
+              borderWidth: 1,
+              titleColor: '#79c0ff',
+              bodyColor: '#e6edf3',
+              callbacks: {
+                label: ctx => ` ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(4)} SOL`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 10 },
+              grid:  { color: 'rgba(48,54,61,0.4)' },
+            },
+            y: {
+              ticks: {
+                color: '#8b949e',
+                font: { size: 10 },
+                callback: v => (v >= 0 ? '+' : '') + v.toFixed(3)
+              },
+              grid: { color: 'rgba(48,54,61,0.4)' },
+            }
+          }
+        }
+      });
+    } else {
+      pnlChart.data.labels = labels;
+      pnlChart.data.datasets[0].data = values;
+      pnlChart.data.datasets[0].pointBackgroundColor = values.map(v => v >= 0 ? '#3fb950' : '#f85149');
+      pnlChart.data.datasets[0].pointRadius = values.length <= 30 ? 4 : 2;
+      pnlChart.update('none');
+    }
+
+    if (!values.length) {
+      // Show placeholder
+      const ctx = document.getElementById('pnl-chart').getContext('2d');
+      if (pnlChart) {
+        pnlChart.data.labels = ['No trades yet'];
+        pnlChart.data.datasets[0].data = [0];
+        pnlChart.update('none');
+      }
+    }
+  }
+
+  function renderHistory(closedTrades) {
+    const tbody   = document.getElementById('history-tbody');
+    const countEl = document.getElementById('history-count');
+    countEl.textContent = closedTrades.length;
+
+    if (!closedTrades.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No closed trades yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = closedTrades.map((t, i) => {
+      const pc    = pnlClass(t.pnl_pct);
+      const badge = `<span class="exit-badge ${exitBadgeClass(t.exit_reason)}">${exitLabel(t.exit_reason)}</span>`;
+      return `
+        <tr>
+          <td class="age-muted">${escHtml(t.trade_id || String(i+1))}</td>
+          <td><span class="token-symbol">${escHtml(t.symbol)}</span></td>
+          <td class="${pc}">${fmtPct(t.pnl_pct)}</td>
+          <td class="${pc}">${fmtSol(t.pnl_sol)}</td>
+          <td>$${fmtPrice(t.entry_price_usd)}</td>
+          <td>$${fmtPrice(t.exit_price_usd)}</td>
+          <td>${(t.sol_spent||0).toFixed(4)}</td>
+          <td>${(t.sol_received||0).toFixed(4)}</td>
+          <td class="age-muted">${fmtAge(t.hold_seconds)}</td>
+          <td>${badge}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderAll(data) {
+    renderStats(data);
+    renderOpenPositions(data.open_positions || []);
+    renderChart(data.closed_trades || []);
+    renderHistory(data.closed_trades || []);
+  }
+
+  function escHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ── Sync loop ────────────────────────────────────────────────────────────
+  function setSyncState(state, msg) {
+    const dot   = document.getElementById('sync-dot');
+    const label = document.getElementById('sync-label');
+    const err   = document.getElementById('conn-error');
+
+    dot.className = 'dot';
+    err.classList.remove('show');
+
+    if (state === 'ok') {
+      label.textContent = msg;
+    } else if (state === 'loading') {
+      dot.classList.add('loading');
+      label.textContent = 'Syncing...';
+    } else if (state === 'error') {
+      dot.classList.add('error');
+      label.textContent = 'Error';
+      err.classList.add('show');
+    }
+  }
+
+  async function doFetch() {
+    setSyncState('loading');
+    try {
+      const data    = await fetchData();
+      lastFetchedData = data;
+      lastFetchTime   = Date.now() / 1000;
+      renderAll(data);
+      setSyncState('ok', `Last synced: just now`);
+    } catch (e) {
+      console.error('Fetch failed:', e);
+      setSyncState('error');
+    }
+  }
+
+  // Tick "last synced X ago" every second without re-fetching
+  function tickSyncLabel() {
+    if (lastFetchTime) {
+      const ago = Math.round(Date.now()/1000 - lastFetchTime);
+      if (ago < 5) {
+        document.getElementById('sync-label').textContent = 'Last synced: just now';
+      } else {
+        document.getElementById('sync-label').textContent = `Last synced: ${fmtLastSynced(lastFetchTime)}`;
+      }
+    }
+    // Tick uptime counter
+    if (sessionStartTs) {
+      const up = Date.now()/1000 - sessionStartTs;
+      document.getElementById('stat-uptime').textContent = fmtUptime(up);
+    }
+  }
+
+  // Kick off
+  doFetch();
+  setInterval(doFetch, 30_000);
+  setInterval(tickSyncLabel, 1_000);
+</script>
+</body>
+</html>
