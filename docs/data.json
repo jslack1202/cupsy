@@ -1,0 +1,19 @@
+{
+  "last_updated": 0.0,
+  "last_updated_str": "never",
+  "stats": {
+    "session_start": 0.0,
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0.0,
+    "total_pnl_sol": 0.0,
+    "best_trade_pct": 0.0,
+    "worst_trade_pct": 0.0,
+    "tokens_scanned": 0,
+    "tokens_bought": 0,
+    "open_positions": 0
+  },
+  "open_positions": [],
+  "closed_trades": []
+}

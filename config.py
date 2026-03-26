@@ -92,6 +92,12 @@ class Config:
     dashboard_port: int = field(default_factory=lambda: _get_int("DASHBOARD_PORT", 8080))
     dashboard_enabled: bool = field(default_factory=lambda: _get_bool("DASHBOARD_ENABLED", True))
 
+    # GitHub live dashboard (optional)
+    github_token: Optional[str] = field(default_factory=lambda: _get_env("GITHUB_TOKEN"))
+    github_owner: str = field(default_factory=lambda: _get_env("GITHUB_OWNER", "jslack1202"))
+    github_repo: str = field(default_factory=lambda: _get_env("GITHUB_REPO", "cupsy"))
+    github_branch: str = field(default_factory=lambda: _get_env("GITHUB_BRANCH", "claude/ai-memecoin-trader-idlFa"))
+
     def validate(self) -> "Config":
         """Warn about missing optional but important keys."""
         warnings = []

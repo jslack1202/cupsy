@@ -24,6 +24,7 @@ from cupsy.risk_manager import RiskManager
 from cupsy.paper_tracker import paper_tracker
 from cupsy.dashboard import run_dashboard
 from cupsy.html_dashboard import run_html_dashboard, write_dashboard, OUTPUT_PATH
+from cupsy.github_sync import GitHubSync
 
 
 async def main() -> None:
@@ -100,6 +101,13 @@ async def main() -> None:
         web_server_task = asyncio.create_task(run_html_dashboard(), name="html_dashboard")
         logger.info(f"Dashboard file: {os.path.abspath(OUTPUT_PATH)}")
 
+    # --- Start GitHub live dashboard sync (paper trading only) ---
+    github_sync_task = None
+    if config.paper_trading and config.github_token:
+        github_sync = GitHubSync()
+        github_sync_task = asyncio.create_task(github_sync.sync_loop(), name="github_sync")
+        logger.info("GitHub live dashboard syncing every 60s")
+
     logger.info("Cupsy is live. Scanning for new tokens...")
 
     # --- Main scanning loop ---
@@ -119,6 +127,8 @@ async def main() -> None:
             dashboard_task.cancel()
         if web_server_task:
             web_server_task.cancel()
+        if github_sync_task:
+            github_sync_task.cancel()
         try:
             await asyncio.wait_for(monitor_task, timeout=5)
         except (asyncio.CancelledError, asyncio.TimeoutError):
