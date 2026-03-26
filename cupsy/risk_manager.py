@@ -16,6 +16,7 @@ import aiohttp
 from config import config
 from cupsy import logger
 from cupsy.trader import Position, Trader
+from cupsy.paper_tracker import paper_tracker
 
 # Maximum age for a position before forced exit (4 hours)
 MAX_POSITION_AGE_SECONDS = 4 * 60 * 60
@@ -136,6 +137,10 @@ class RiskManager:
         buy_price = position.buy_price_usd
         if buy_price <= 0:
             return
+
+        # Record real price snapshot for paper trading data analysis
+        if config.paper_trading:
+            paper_tracker.update_price(position.mint, position.symbol, current_price)
 
         pnl_pct = ((current_price - buy_price) / buy_price) * 100
         age_seconds = time.time() - position.buy_timestamp

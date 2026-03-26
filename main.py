@@ -20,6 +20,8 @@ from cupsy.ai_brain import AICupsy
 from cupsy.trader import Trader
 from cupsy.wallet import Wallet
 from cupsy.risk_manager import RiskManager
+from cupsy.paper_tracker import paper_tracker
+from cupsy.dashboard import run_dashboard
 
 
 async def main() -> None:
@@ -84,6 +86,12 @@ async def main() -> None:
         name="risk_monitor",
     )
 
+    # --- Start live dashboard (paper trading only) ---
+    dashboard_task = None
+    if config.paper_trading:
+        dashboard_task = asyncio.create_task(run_dashboard(), name="dashboard")
+        logger.info("Paper trading dashboard started.")
+
     logger.info("Cupsy is live. Scanning for new tokens...")
 
     # --- Main scanning loop ---
@@ -99,10 +107,18 @@ async def main() -> None:
         logger.info("Keyboard interrupt received, shutting down.")
     finally:
         monitor_task.cancel()
+        if dashboard_task:
+            dashboard_task.cancel()
         try:
             await asyncio.wait_for(monitor_task, timeout=5)
         except (asyncio.CancelledError, asyncio.TimeoutError):
             pass
+        if config.paper_trading:
+            paper_tracker.final_save()
+            logger.info(
+                f"Paper session saved → data/paper_trades.csv, "
+                f"data/price_history.csv, data/session_stats.json"
+            )
         logger.info("Cupsy shut down cleanly.")
 
 
@@ -115,6 +131,7 @@ async def _process_token(token, analyzer, brain, trader, risk_manager) -> None:
     symbol = token.symbol or "???"
 
     try:
+        paper_tracker.increment_scanned()
         logger.info(f"New token: [{token.source.value}] {token.name} ({symbol}) | {mint}")
 
         # --- Analyze ---

@@ -18,6 +18,7 @@ import aiohttp
 from config import config
 from cupsy import logger
 from cupsy.wallet import Wallet
+from cupsy.paper_tracker import paper_tracker
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -206,6 +207,7 @@ class Trader:
             token_amount=token_amount,
             paper=True,
         )
+        paper_tracker.record_buy(position)
         return position
 
     async def _live_buy(self, mint: str, symbol: str, amount_sol: float,
@@ -328,6 +330,12 @@ class Trader:
             pnl_sol=pnl_sol,
             reason=reason,
             paper=True,
+        )
+        paper_tracker.record_sell(
+            position=position,
+            exit_price_usd=current_price_usd,
+            sol_received=sol_received,
+            reason=reason,
         )
 
         return SwapResult(
