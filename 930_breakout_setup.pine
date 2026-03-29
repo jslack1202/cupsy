@@ -1,94 +1,90 @@
 // ============================================================================
 // 9:30 Breakout Setup Indicator
-// Marks pre-market support, resistance, and trend lines from 8:30–9:15 AM ET
-// to identify potential breakout direction at the 9:30 open.
+// Marks bias support & resistance from 9:00–9:25 AM ET.
+// Lines span the full window and stop exactly at the 9:30 open.
 // ============================================================================
 //@version=5
 indicator("9:30 Breakout Setup", shorttitle="930 BO", overlay=true,
      max_lines_count=500, max_labels_count=200, max_boxes_count=100)
 
 // ─── INPUTS ──────────────────────────────────────────────────────────────────
-grpWindow   = "Pre-Market Window"
-i_startHour = input.int(8,  "Start Hour (ET)",   minval=0, maxval=23, group=grpWindow)
-i_startMin  = input.int(30, "Start Minute",       minval=0, maxval=59, group=grpWindow)
-i_endHour   = input.int(9,  "End Hour (ET)",      minval=0, maxval=23, group=grpWindow)
-i_endMin    = input.int(15, "End Minute",          minval=0, maxval=59, group=grpWindow)
+grpWindow    = "Bias Window"
+i_startHour  = input.int(9,  "Start Hour (ET)",   minval=0, maxval=23, group=grpWindow)
+i_startMin   = input.int(0,  "Start Minute",       minval=0, maxval=59, group=grpWindow)
+i_endHour    = input.int(9,  "End Hour (ET)",      minval=0, maxval=23, group=grpWindow)
+i_endMin     = input.int(25, "End Minute",          minval=0, maxval=59, group=grpWindow)
 
-grpColors   = "Colors"
-i_resColor  = input.color(color.new(color.red,    0),  "Resistance",        group=grpColors)
-i_supColor  = input.color(color.new(color.lime,   0),  "Support",           group=grpColors)
-i_midColor  = input.color(color.new(color.yellow, 0),  "Midpoint",          group=grpColors)
-i_trendColor= input.color(color.new(color.orange, 0),  "Trend Lines",       group=grpColors)
-i_bgColor   = input.color(color.new(color.blue,   88), "Window Background", group=grpColors)
-i_showBg    = input.bool(true, "Show Window Background",                     group=grpColors)
+grpColors    = "Colors"
+i_resColor   = input.color(color.new(color.red,    0),  "Resistance",        group=grpColors)
+i_supColor   = input.color(color.new(color.lime,   0),  "Support",           group=grpColors)
+i_midColor   = input.color(color.new(color.yellow, 0),  "Midpoint",          group=grpColors)
+i_trendColor = input.color(color.new(color.orange, 0),  "Trend Lines",       group=grpColors)
+i_bgColor    = input.color(color.new(color.blue,   88), "Window Background", group=grpColors)
+i_showBg     = input.bool(true, "Show Window Background",                     group=grpColors)
 
-grpLines    = "Lines"
-i_extendLines= input.bool(true,  "Extend S/R Right",           group=grpLines)
-i_showMid   = input.bool(true,   "Show Midpoint Line",          group=grpLines)
-i_showTrend = input.bool(true,   "Show Trend Lines",            group=grpLines)
-i_swingLen  = input.int(3, "Swing Detection Length", minval=1, maxval=10, group=grpLines,
-     tooltip="Number of bars each side required to confirm a swing high/low")
+grpLines     = "Lines"
+i_showMid    = input.bool(true, "Show Midpoint Line",  group=grpLines)
+i_showTrend  = input.bool(true, "Show Trend Lines",    group=grpLines)
+i_swingLen   = input.int(3, "Swing Detection Length", minval=1, maxval=10, group=grpLines,
+     tooltip="Bars each side needed to confirm a swing high/low")
 
-// ─── TIME HELPERS ─────────────────────────────────────────────────────────────
-barHour()  => hour(time,        "America/New_York")
-barMin()   => minute(time,      "America/New_York")
-barDate()  => year(time,        "America/New_York") * 10000 +
-              month(time,       "America/New_York") * 100   +
-              dayofmonth(time,  "America/New_York")
+// ─── TIME ─────────────────────────────────────────────────────────────────────
+barHour() => hour(time,       "America/New_York")
+barMin()  => minute(time,     "America/New_York")
+barDate() => year(time,       "America/New_York") * 10000 +
+             month(time,      "America/New_York") * 100   +
+             dayofmonth(time, "America/New_York")
 
-startMins  = i_startHour * 60 + i_startMin
-endMins    = i_endHour   * 60 + i_endMin
-curMins    = barHour() * 60 + barMin()
+startMins    = i_startHour * 60 + i_startMin
+endMins      = i_endHour   * 60 + i_endMin
+breakoutMins = 9 * 60 + 30
+curMins      = barHour() * 60 + barMin()
 
-inWindow   = curMins >= startMins and curMins < endMins
-afterWindow= curMins >= endMins
-newDay     = ta.change(barDate()) != 0
+inWindow    = curMins >= startMins    and curMins <  endMins        // 9:00–9:25
+inGap       = curMins >= endMins      and curMins <  breakoutMins   // 9:25–9:30
+atBreakout  = curMins >= breakoutMins                               // 9:30+
+newDay      = ta.change(barDate()) != 0
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-var float windowHigh   = na
-var float windowLow    = na
-var bool  drawnToday   = false
-var int   windowStart  = na  // bar_index where window opened
+var float windowHigh  = na
+var float windowLow   = na
+var bool  drawnToday  = false
+var bool  lockedToday = false
+var int   windowStart = na
 
-// Swing point arrays (reset each day)
-var float[] shPrices   = array.new_float()
-var int[]   shBars     = array.new_int()
-var float[] slPrices   = array.new_float()
-var int[]   slBars     = array.new_int()
+var float[] shPrices  = array.new_float()
+var int[]   shBars    = array.new_int()
+var float[] slPrices  = array.new_float()
+var int[]   slBars    = array.new_int()
 
-// Persistent drawing handles
-var line    resLine    = na
-var line    supLine    = na
-var line    midLine    = na
-var line    hiTrend    = na
-var line    loTrend    = na
-var box     windowBox  = na
-var label   resLbl     = na
-var label   supLbl     = na
-var label   midLbl     = na
+var line  resLine   = na
+var line  supLine   = na
+var line  midLine   = na
+var line  hiTrend   = na
+var line  loTrend   = na
+var box   windowBox = na
+var label resLbl    = na
+var label supLbl    = na
+var label midLbl    = na
 
-// ─── RESET ON NEW DAY ────────────────────────────────────────────────────────
+// ─── RESET ON NEW DAY ─────────────────────────────────────────────────────────
 if newDay
     windowHigh  := na
     windowLow   := na
     drawnToday  := false
+    lockedToday := false
     windowStart := na
     array.clear(shPrices)
     array.clear(shBars)
     array.clear(slPrices)
     array.clear(slBars)
 
-// ─── ACCUMULATE WINDOW HIGH / LOW ────────────────────────────────────────────
+// ─── ACCUMULATE WINDOW HIGH / LOW ─────────────────────────────────────────────
 if inWindow
-    // Record where window started
     if na(windowStart)
         windowStart := bar_index
-
-    // Expand high/low
     windowHigh := na(windowHigh) ? high : math.max(windowHigh, high)
     windowLow  := na(windowLow)  ? low  : math.min(windowLow,  low)
-
-    // Background box — create on first bar, extend on subsequent bars
     if i_showBg
         if na(windowBox)
             windowBox := box.new(bar_index, high, bar_index + 1, low,
@@ -98,9 +94,8 @@ if inWindow
             box.set_top(windowBox,    math.max(box.get_top(windowBox),    high))
             box.set_bottom(windowBox, math.min(box.get_bottom(windowBox), low))
 
-// ─── SWING DETECTION INSIDE WINDOW ──────────────────────────────────────────
-// Check the bar i_swingLen bars ago for swing highs/lows
-pivotBar = bar_index - i_swingLen
+// ─── SWING DETECTION ──────────────────────────────────────────────────────────
+pivotBar    = bar_index - i_swingLen
 isSwingHigh = inWindow[i_swingLen]
 isSwingLow  = inWindow[i_swingLen]
 
@@ -114,85 +109,85 @@ if isSwingHigh or isSwingLow
 if isSwingHigh
     array.push(shPrices, high[i_swingLen])
     array.push(shBars,   pivotBar)
-
 if isSwingLow
     array.push(slPrices, low[i_swingLen])
     array.push(slBars,   pivotBar)
 
-// ─── DRAW WHEN WINDOW CLOSES ─────────────────────────────────────────────────
-windowJustClosed = afterWindow and not afterWindow[1] and not na(windowHigh) and not drawnToday
+// ─── DRAW WHEN WINDOW CLOSES (9:25) ──────────────────────────────────────────
+windowJustClosed = inGap and not inGap[1] and not na(windowHigh) and not drawnToday
 
 if windowJustClosed
     drawnToday := true
-    ext = i_extendLines ? extend.right : extend.none
+    midPrice   = math.avg(windowHigh, windowLow)
 
-    // Clean up any prior drawings from today (handles chart reload)
-    line.delete(resLine)
-    line.delete(supLine)
-    line.delete(midLine)
-    line.delete(hiTrend)
-    line.delete(loTrend)
-    label.delete(resLbl)
-    label.delete(supLbl)
-    label.delete(midLbl)
+    line.delete(resLine)   line.delete(supLine)
+    line.delete(midLine)   line.delete(hiTrend)   line.delete(loTrend)
+    label.delete(resLbl)   label.delete(supLbl)   label.delete(midLbl)
 
-    midPrice = math.avg(windowHigh, windowLow)
-
-    // ── Resistance (high of window) ──────────────────────────────────────────
-    resLine := line.new(bar_index, windowHigh, bar_index + 1, windowHigh,
-         color=i_resColor, width=2, style=line.style_solid, extend=ext)
+    // Lines start at the opening bar of the window and end at current bar.
+    // They will be pushed to 9:30 bar-by-bar in the gap block below.
+    resLine := line.new(windowStart, windowHigh, bar_index, windowHigh,
+         color=i_resColor, width=2, style=line.style_solid, extend=extend.none)
     resLbl  := label.new(bar_index, windowHigh,
          "R  " + str.tostring(windowHigh, format.mintick),
          color=color.new(i_resColor, 80), textcolor=i_resColor,
          style=label.style_label_left, size=size.normal)
 
-    // ── Support (low of window) ──────────────────────────────────────────────
-    supLine := line.new(bar_index, windowLow, bar_index + 1, windowLow,
-         color=i_supColor, width=2, style=line.style_solid, extend=ext)
+    supLine := line.new(windowStart, windowLow, bar_index, windowLow,
+         color=i_supColor, width=2, style=line.style_solid, extend=extend.none)
     supLbl  := label.new(bar_index, windowLow,
          "S  " + str.tostring(windowLow, format.mintick),
          color=color.new(i_supColor, 80), textcolor=i_supColor,
          style=label.style_label_left, size=size.normal)
 
-    // ── Midpoint ─────────────────────────────────────────────────────────────
     if i_showMid
-        midLine := line.new(bar_index, midPrice, bar_index + 1, midPrice,
-             color=i_midColor, width=1, style=line.style_dashed, extend=ext)
+        midLine := line.new(windowStart, midPrice, bar_index, midPrice,
+             color=i_midColor, width=1, style=line.style_dashed, extend=extend.none)
         midLbl  := label.new(bar_index, midPrice,
              "Mid  " + str.tostring(midPrice, format.mintick),
              color=color.new(i_midColor, 85), textcolor=i_midColor,
              style=label.style_label_left, size=size.small)
 
-    // ── Trend lines ───────────────────────────────────────────────────────────
-    // Upper trendline — connect last two swing highs
     if i_showTrend and array.size(shBars) >= 2
-        sz  = array.size(shBars)
-        x1h = array.get(shBars,   sz - 2)
-        y1h = array.get(shPrices, sz - 2)
-        x2h = array.get(shBars,   sz - 1)
-        y2h = array.get(shPrices, sz - 1)
-        hiTrend := line.new(x1h, y1h, x2h, y2h,
-             color=i_trendColor, width=2, style=line.style_dashed, extend=ext)
+        sz = array.size(shBars)
+        hiTrend := line.new(
+             array.get(shBars, sz-2), array.get(shPrices, sz-2),
+             array.get(shBars, sz-1), array.get(shPrices, sz-1),
+             color=i_trendColor, width=2, style=line.style_dashed, extend=extend.none)
 
-    // Lower trendline — connect last two swing lows
     if i_showTrend and array.size(slBars) >= 2
-        sz  = array.size(slBars)
-        x1l = array.get(slBars,   sz - 2)
-        y1l = array.get(slPrices, sz - 2)
-        x2l = array.get(slBars,   sz - 1)
-        y2l = array.get(slPrices, sz - 1)
-        loTrend := line.new(x1l, y1l, x2l, y2l,
-             color=i_trendColor, width=2, style=line.style_dashed, extend=ext)
+        sz = array.size(slBars)
+        loTrend := line.new(
+             array.get(slBars, sz-2), array.get(slPrices, sz-2),
+             array.get(slBars, sz-1), array.get(slPrices, sz-1),
+             color=i_trendColor, width=2, style=line.style_dashed, extend=extend.none)
 
-// ─── ALERTS ──────────────────────────────────────────────────────────────────
-alertcondition(not na(windowHigh) and close > windowHigh and afterWindow,
+// ─── PUSH LINES FORWARD DURING 9:25–9:30 GAP ────────────────────────────────
+// Each bar in the gap advances the right endpoint so lines reach exactly 9:30.
+if inGap and drawnToday and not lockedToday and not na(resLine)
+    line.set_x2(resLine,  bar_index)
+    label.set_x(resLbl,   bar_index)
+    line.set_x2(supLine,  bar_index)
+    label.set_x(supLbl,   bar_index)
+    if not na(midLine)
+        line.set_x2(midLine, bar_index)
+        label.set_x(midLbl,  bar_index)
+    if not na(hiTrend)
+        line.set_x2(hiTrend, bar_index)
+    if not na(loTrend)
+        line.set_x2(loTrend, bar_index)
+
+// ─── LOCK AT 9:30 — stop moving lines ────────────────────────────────────────
+if atBreakout and not atBreakout[1] and drawnToday and not lockedToday
+    lockedToday := true
+
+// ─── ALERTS ───────────────────────────────────────────────────────────────────
+alertcondition(not na(windowHigh) and close > windowHigh and atBreakout,
      title="Breakout Above Resistance",
      message="Price broke above pre-market resistance at {{plot_0}}")
-
-alertcondition(not na(windowLow) and close < windowLow and afterWindow,
+alertcondition(not na(windowLow) and close < windowLow and atBreakout,
      title="Breakout Below Support",
      message="Price broke below pre-market support at {{plot_0}}")
 
-// Hidden plots so alerts can reference price levels
 plot(windowHigh, "Pre-Market High", color=color.new(i_resColor, 100), display=display.none)
 plot(windowLow,  "Pre-Market Low",  color=color.new(i_supColor, 100), display=display.none)
