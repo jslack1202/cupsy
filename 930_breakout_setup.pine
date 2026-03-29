@@ -120,9 +120,14 @@ if windowJustClosed
     drawnToday := true
     midPrice   = math.avg(windowHigh, windowLow)
 
-    line.delete(resLine)   line.delete(supLine)
-    line.delete(midLine)   line.delete(hiTrend)   line.delete(loTrend)
-    label.delete(resLbl)   label.delete(supLbl)   label.delete(midLbl)
+    line.delete(resLine)
+    line.delete(supLine)
+    line.delete(midLine)
+    line.delete(hiTrend)
+    line.delete(loTrend)
+    label.delete(resLbl)
+    label.delete(supLbl)
+    label.delete(midLbl)
 
     // Lines start at the opening bar of the window and end at current bar.
     // They will be pushed to 9:30 bar-by-bar in the gap block below.
