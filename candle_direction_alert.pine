@@ -1,0 +1,57 @@
+// The Strat - Candle 2 Direction Switch Alert
+// Alerts when a "2" candle (directional bar) switches from Up to Down or Down to Up
+//
+// Candle numbering (Rob Smith's The Strat):
+//   1  = Inside bar     : high < prev high AND low > prev low
+//   2U = Directional Up : high > prev high AND low >= prev low
+//   2D = Directional Down: low < prev low AND high <= prev high
+//   3  = Outside bar    : high > prev high AND low < prev low
+
+//@version=5
+indicator("The Strat - 2 Direction Switch Alert", overlay=true, max_labels_count=500)
+
+// --- Candle Classification ---
+is_1  = high < high[1] and low > low[1]
+is_2U = high > high[1] and low >= low[1]
+is_2D = low  < low[1]  and high <= high[1]
+is_3  = high > high[1] and low < low[1]
+
+// --- Detect Direction Switches on a 2 candle ---
+// 2 switched to downside: previous was 2U, current is 2D
+switch_to_down = is_2U[1] and is_2D
+
+// 2 switched to upside: previous was 2D, current is 2U
+switch_to_up   = is_2D[1] and is_2U
+
+// --- Visual Labels ---
+if switch_to_down
+    label.new(bar_index, high, "2D Switch",
+              color=color.red,
+              textcolor=color.white,
+              style=label.style_label_down,
+              size=size.small)
+
+if switch_to_up
+    label.new(bar_index, low, "2U Switch",
+              color=color.green,
+              textcolor=color.white,
+              style=label.style_label_up,
+              size=size.small)
+
+// --- Background highlight ---
+bgcolor(switch_to_down ? color.new(color.red,   85) : na)
+bgcolor(switch_to_up   ? color.new(color.green, 85) : na)
+
+// --- Alerts ---
+alertcondition(switch_to_down,
+               title="2 Switch to Downside",
+               message="The Strat: 2 candle switched to DOWNSIDE on {{ticker}} ({{interval}})")
+
+alertcondition(switch_to_up,
+               title="2 Switch to Upside",
+               message="The Strat: 2 candle switched to UPSIDE on {{ticker}} ({{interval}})")
+
+// Combined alert for either direction
+alertcondition(switch_to_down or switch_to_up,
+               title="2 Direction Switch (Any)",
+               message="The Strat: 2 candle direction SWITCHED on {{ticker}} ({{interval}})")
