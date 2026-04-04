@@ -1,0 +1,62 @@
+// This source code is subject to the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+//@version=5
+indicator("Trading Checklist", overlay=true)
+
+// ─── Position Input ──────────────────────────────────────────────────────────
+pos = input.string("Top Left", "Position",
+     options=["Top Left", "Top Right", "Middle Left", "Middle Right",
+              "Bottom Left", "Bottom Right"])
+
+tablePos = switch pos
+    "Top Left"     => position.top_left
+    "Top Right"    => position.top_right
+    "Middle Left"  => position.middle_left
+    "Middle Right" => position.middle_right
+    "Bottom Left"  => position.bottom_left
+    "Bottom Right" => position.bottom_right
+    => position.top_left
+
+// ─── Style Inputs ────────────────────────────────────────────────────────────
+bgColor     = input.color(color.new(#1a1a3e, 10), "Background")
+borderColor = input.color(color.new(#cc44ff, 60),  "Border")
+titleColor  = input.color(color.new(#cc44ff, 0),   "Title color")
+itemColor   = input.color(color.new(#4da6ff, 0),   "Item color")
+
+// ─── Checklist Items ─────────────────────────────────────────────────────────
+item1 = input.string("Identify Bias",              "Step 1")
+item2 = input.string("Wait For Rejected 2",        "Step 2")
+item3 = input.string("Did we form Mother candle",  "Step 3")
+item4 = input.string("Identify FVG or IFVG",       "Step 4")
+item5 = input.string("Take entry Off Mother candle","Step 5")
+
+// ─── Build Table (only on last bar) ──────────────────────────────────────────
+var table t = na
+
+if barstate.islast
+    // 7 rows: header + blank + 5 items
+    t := table.new(tablePos, 2, 7,
+         bgcolor       = bgColor,
+         border_color  = borderColor,
+         border_width  = 1,
+         frame_color   = borderColor,
+         frame_width   = 2)
+
+    // Header row
+    table.cell(t, 0, 0, "📋 Trade Checklist", text_color=titleColor,
+         text_size=size.normal, text_halign=text.align_left,
+         bgcolor=bgColor, colspan=2)
+
+    // Spacer
+    table.cell(t, 0, 1, "", bgcolor=bgColor, colspan=2)
+
+    // Items
+    labels = array.from(item1, item2, item3, item4, item5)
+    for i = 0 to 4
+        row = i + 2
+        table.cell(t, 0, row, str.tostring(i + 1) + ".",
+             text_color=itemColor, text_size=size.normal,
+             text_halign=text.align_right, bgcolor=bgColor)
+        table.cell(t, 1, row, array.get(labels, i),
+             text_color=itemColor, text_size=size.normal,
+             text_halign=text.align_left, bgcolor=bgColor)
