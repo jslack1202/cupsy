@@ -1,0 +1,200 @@
+// This Pine Script® code is subject to the Mozilla Public License 2.0 terms
+// © AMD × FVG Signal Indicator
+//@version=5
+indicator("AMD × FVG Signal", shorttitle="AMD·FVG", overlay=true,
+          max_boxes_count=100, max_lines_count=100, max_labels_count=50)
+
+// ═══════════════════════════════════════════════════════════════
+//                          INPUTS
+// ═══════════════════════════════════════════════════════════════
+
+var string GRP1 = "── Accumulation ──"
+accum_len   = input.int  (10,  "Lookback Length (bars)",  group=GRP1, minval=5,  maxval=50)
+accum_mult  = input.float(1.5, "ATR Range Multiplier",    group=GRP1, step=0.1,  minval=0.3, maxval=5.0,
+              tooltip="Range must be smaller than (ATR × this value). Lower = stricter consolidation required.")
+
+var string GRP2 = "── Signal ──"
+max_wait    = input.int  (20,  "Max Bars After Manipulation", group=GRP2, minval=5, maxval=100,
+              tooltip="Setup resets if no FVG forms within this many bars after the manipulation sweep.")
+
+var string GRP3 = "── Display ──"
+show_accum  = input.bool(true, "Show Accumulation Box",  group=GRP3)
+show_manip  = input.bool(true, "Show Manipulation Box",  group=GRP3)
+show_fvg    = input.bool(true, "Show FVG Box",           group=GRP3)
+show_signal = input.bool(true, "Show Signal Labels",     group=GRP3)
+fvg_ext     = input.int (30,   "FVG Box Extend (bars)",  group=GRP3, minval=0, maxval=200,
+              tooltip="How many bars to extend the FVG zone to the right.")
+
+var string GRP4 = "── Colors ──"
+c_accum      = input.color(color.new(color.gray,   78), "Accumulation Box",             group=GRP4)
+c_manip_bull = input.color(color.new(color.red,    70), "Manipulation — Bullish Setup", group=GRP4)
+c_manip_bear = input.color(color.new(color.purple, 70), "Manipulation — Bearish Setup", group=GRP4)
+c_fvg_bull   = input.color(color.new(color.green,  68), "Bullish FVG Box",              group=GRP4)
+c_fvg_bear   = input.color(color.new(color.red,    68), "Bearish FVG Box",              group=GRP4)
+
+// ═══════════════════════════════════════════════════════════════
+//                       CALCULATIONS
+// ═══════════════════════════════════════════════════════════════
+
+atr14    = ta.atr(14)
+hi_n     = ta.highest(high, accum_len)
+lo_n     = ta.lowest (low,  accum_len)
+in_accum = (hi_n - lo_n) < (atr14 * accum_mult)
+
+// ═══════════════════════════════════════════════════════════════
+//                      STATE MACHINE
+//
+//  Phase 0 → Idle          : scanning for accumulation
+//  Phase 1 → Accumulating  : tight range confirmed, watching for sweep
+//  Phase 2 → Post-Manip    : sweep confirmed, hunting for FVG
+//
+//  Valid sequence enforced:  Accum → Manip → FVG  (in order)
+//  Signal fires ONLY when FVG forms after Manip after Accum.
+// ═══════════════════════════════════════════════════════════════
+
+var int   phase      = 0
+var float acc_hi     = na
+var float acc_lo     = na
+var int   acc_start  = 0
+var int   manip_bar  = 0
+var bool  bull       = false   // true = bullish AMD (swept lows → expect rally)
+var box   b_accum    = na
+var box   b_manip    = na
+
+var bool  bull_signal = false
+var bool  bear_signal = false
+
+// Reset signal flags each bar so plotshape only fires on the signal bar
+bull_signal := false
+bear_signal := false
+
+// ─── Phase 0 → 1 : Idle → Accumulating ─────────────────────
+if phase == 0
+    if in_accum
+        phase     := 1
+        acc_hi    := hi_n
+        acc_lo    := lo_n
+        acc_start := bar_index - accum_len + 1
+        if show_accum
+            b_accum := box.new(
+                 acc_start, acc_hi, bar_index, acc_lo,
+                 bgcolor      = c_accum,
+                 border_color = color.new(color.gray, 30),
+                 border_width = 1)
+
+// ─── Phase 1 : Accumulation Active ──────────────────────────
+else if phase == 1
+    if in_accum
+        // Still consolidating — keep the accumulation range updated
+        acc_hi := hi_n
+        acc_lo := lo_n
+        if show_accum and not na(b_accum)
+            box.set_right (b_accum, bar_index)
+            box.set_top   (b_accum, acc_hi)
+            box.set_bottom(b_accum, acc_lo)
+    else
+        // Range broke — check if it was a manipulation sweep
+        swept_lo = low  < acc_lo   // liquidity swept below (bullish AMD)
+        swept_hi = high > acc_hi   // liquidity swept above (bearish AMD)
+        if swept_lo or swept_hi
+            phase     := 2
+            bull      := swept_lo          // swept lows → bullish AMD setup
+            manip_bar := bar_index
+            // Seal the accumulation box at the bar before manipulation
+            if show_accum and not na(b_accum)
+                box.set_right(b_accum, bar_index - 1)
+            // Draw the manipulation (liquidity sweep) box
+            if show_manip
+                // Bull: show the sweep zone from acc_lo down to the wick low
+                // Bear: show the sweep zone from acc_hi up to the wick high
+                m_top = bull ? acc_lo : high
+                m_bot = bull ? low    : acc_hi
+                b_manip := box.new(
+                     bar_index, m_top, bar_index, m_bot,
+                     bgcolor      = bull ? c_manip_bull : c_manip_bear,
+                     border_color = color.new(color.orange, 20),
+                     border_width = 1)
+        else
+            // Range expanded without a clear directional sweep — reset
+            phase := 0
+
+// ─── Phase 2 : Hunt for FVG (Main Signal) ───────────────────
+else if phase == 2
+    // Keep extending the manipulation box to the current bar
+    if show_manip and not na(b_manip)
+        box.set_right(b_manip, bar_index)
+
+    // FVG anchor (oldest of 3 candles) must be at or after the manip bar
+    fvg_valid_anchor = (bar_index - 2) >= manip_bar
+
+    // ── 3-Candle Fair Value Gap ──
+    // Bullish FVG : high[2] < low[0]  →  gap between candle-2's top and current candle's bottom
+    // Bearish FVG : low[2]  > high[0] →  gap between candle-2's bottom and current candle's top
+    b_fvg = bull      and fvg_valid_anchor and (high[2] < low)
+    s_fvg = not bull  and fvg_valid_anchor and (low[2]  > high)
+
+    if b_fvg
+        phase       := 0
+        bull_signal := true
+        // FVG box spans the imbalance zone (high[2] → low[0])
+        if show_fvg
+            box.new(bar_index - 2, low, bar_index + fvg_ext, high[2],
+                     bgcolor      = c_fvg_bull,
+                     border_color = color.new(color.lime, 0),
+                     border_width = 2)
+        if show_signal
+            label.new(bar_index, low,
+                       "▲  AMD × FVG\nBULLISH",
+                       style     = label.style_label_up,
+                       color     = color.new(color.lime, 5),
+                       textcolor = color.black,
+                       size      = size.normal)
+        alert("AMD×FVG — Bullish Signal on " + syminfo.ticker, alert.freq_once_per_bar)
+
+    else if s_fvg
+        phase       := 0
+        bear_signal := true
+        // FVG box spans the imbalance zone (high[0] → low[2])
+        if show_fvg
+            box.new(bar_index - 2, low[2], bar_index + fvg_ext, high,
+                     bgcolor      = c_fvg_bear,
+                     border_color = color.new(color.red, 0),
+                     border_width = 2)
+        if show_signal
+            label.new(bar_index, high,
+                       "▼  AMD × FVG\nBEARISH",
+                       style     = label.style_label_down,
+                       color     = color.new(color.red, 5),
+                       textcolor = color.white,
+                       size      = size.normal)
+        alert("AMD×FVG — Bearish Signal on " + syminfo.ticker, alert.freq_once_per_bar)
+
+    // Timeout: no FVG formed in time → reset and scan for a new setup
+    else if (bar_index - manip_bar) > max_wait
+        phase := 0
+
+// ═══════════════════════════════════════════════════════════════
+//                    PLOTS & ALERT CONDITIONS
+// ═══════════════════════════════════════════════════════════════
+
+plotshape(show_signal and bull_signal,
+          title    = "Bullish AMD×FVG",
+          style    = shape.triangleup,
+          location = location.belowbar,
+          color    = color.lime,
+          size     = size.small)
+
+plotshape(show_signal and bear_signal,
+          title    = "Bearish AMD×FVG",
+          style    = shape.triangledown,
+          location = location.abovebar,
+          color    = color.red,
+          size     = size.small)
+
+alertcondition(bull_signal,
+               title   = "AMD×FVG — Bullish",
+               message = "AMD×FVG Bullish Signal | {{ticker}} | {{interval}} | Price: {{close}}")
+
+alertcondition(bear_signal,
+               title   = "AMD×FVG — Bearish",
+               message = "AMD×FVG Bearish Signal | {{ticker}} | {{interval}} | Price: {{close}}")
