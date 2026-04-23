@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shark Futures — Sponsor Banner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      background: linear-gradient(135deg, #0b2d14 0%, #0f3a1a 60%, #0a2510 100%);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 18px 32px 18px 24px;
+      box-shadow:
+        0 0 40px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(255,255,255,0.05) inset;
+      animation: slideIn 0.6s cubic-bezier(0.22,1,0.36,1) both;
+      max-width: 720px;
+    }
+
+    /* ── Logo SVG replica ─────────────────────────────────── */
+    .logo-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 54px;
+      height: 54px;
+      background: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .logo-text .brand {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    .logo-text .sub {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 4.5px;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* ── Divider ─────────────────────────────────────────── */
+    .divider {
+      width: 1.5px;
+      height: 52px;
+      background: rgba(255,255,255,0.18);
+      flex-shrink: 0;
+    }
+
+    /* ── Promo text ──────────────────────────────────────── */
+    .promo {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .promo-top {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.75);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .promo-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .promo-main .use-code {
+      font-size: 16px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+    }
+
+    .code-pill {
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.35);
+      border-radius: 7px;
+      padding: 3px 14px;
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    .promo-discount {
+      font-size: 28px;
+      font-weight: 900;
+      color: #4cdb7a;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 20px rgba(76,219,122,0.45);
+    }
+
+    .promo-off {
+      font-size: 16px;
+      font-weight: 700;
+      color: #4cdb7a;
+      align-self: flex-end;
+      margin-bottom: 3px;
+    }
+
+    /* ── Animations ──────────────────────────────────────── */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.0); }
+      50%       { box-shadow: 0 0 0 4px rgba(255,255,255,0.12); }
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+
+    <!-- Logo -->
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <!-- Shark Futures mountain/wave icon -->
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Circle background -->
+          <circle cx="18" cy="18" r="18" fill="white"/>
+          <!-- Mountain peak shape (matches logo) -->
+          <path d="M6 26 C6 26 10 14 18 10 C26 14 30 26 30 26" fill="#0d2e14" stroke="none"/>
+          <!-- Inner arc / wave -->
+          <path d="M10 26 C12 20 15 16 18 14 C21 16 24 20 26 26" fill="white" stroke="none"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="brand">Shark</span>
+        <span class="sub">Futures</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Promo -->
+    <div class="promo">
+      <span class="promo-top">Sponsored &nbsp;·&nbsp; Prop Firm Challenge</span>
+      <div class="promo-main">
+        <span class="use-code">Use code</span>
+        <span class="code-pill">SLACK</span>
+        <span class="promo-discount">60%</span>
+        <span class="promo-off">OFF</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
